@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+
+    <dimen name="rangebar_height">52dp</dimen>
+    <dimen name="rangebar_paddingbottom">12dp</dimen>
+    <dimen name="rangebar_selector_size">9dp</dimen>
+</resources>
