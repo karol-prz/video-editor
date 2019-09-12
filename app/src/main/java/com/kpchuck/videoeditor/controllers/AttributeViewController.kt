@@ -1,108 +1,238 @@
 package com.kpchuck.videoeditor.controllers
 
 import android.content.Context
-import android.text.InputType
 import android.util.ArrayMap
-import android.view.LayoutInflater
+import android.util.Log
+import android.view.View
 import android.view.ViewGroup
-import android.widget.LinearLayout
-import android.widget.TextView
+import android.view.ViewParent
+import android.widget.*
+import androidx.cardview.widget.CardView
+import androidx.core.view.GestureDetectorCompat
+import androidx.core.view.children
 import androidx.recyclerview.widget.RecyclerView
-import com.google.android.material.textfield.TextInputEditText
 import com.kpchuck.videoeditor.R
 import me.relex.circleindicator.CircleIndicator2
 import androidx.recyclerview.widget.PagerSnapHelper
 import androidx.recyclerview.widget.LinearLayoutManager
-import com.google.android.material.textfield.TextInputLayout
+import com.kpchuck.videoeditor.EffectVideoBinder
+import com.kpchuck.videoeditor.utils.OnSwipeListener
+import com.kpchuck.videoeditor.views.rangebars.SingleRowSeekBar
+import java.util.*
+import kotlin.collections.ArrayList
 
 
-class AttributeViewController(attributeView: LinearLayout, context: Context, val attributes: Array<String>, val useKeyframes: Boolean = false) {
+class AttributeViewController(attributeView: CardView, context: Context, val keyFrameAttrs: TreeMap<Int, ArrayMap<String, Float>>,
+                              val orderedAttrs: List<String>, val effectVideoBinder: EffectVideoBinder, val updateKeyFrames: () -> Unit){
 
     private val recyclerView = attributeView.findViewById<RecyclerView>(R.id.attributeRecyclerView)
     private val circleIndicator = attributeView.findViewById<CircleIndicator2>(R.id.attributeIndicator)
-    private val layoutManager: LinearLayoutManager
+    val layoutManager: CustomLinearLayoutManager
+
+    val gestureDector = GestureDetectorCompat(context, object : OnSwipeListener(){
+        override fun onSwipe(direction: Direction): Boolean {
+            if (direction == Direction.left)
+                scrollBy(1)
+            else if (direction == Direction.right)
+                scrollBy(-1)
+            return super.onSwipe(direction)
+        }
+    })
 
     init {
-        val adapter = SimplePagerAdapter(attributes)
-        layoutManager = LinearLayoutManager(context, LinearLayoutManager.HORIZONTAL, false)
+        val adapter = KeyFramePagerAdapter()
+        layoutManager = CustomLinearLayoutManager(context, LinearLayoutManager.HORIZONTAL, false)
         recyclerView.layoutManager = layoutManager
         recyclerView.adapter = adapter
+
+        //recyclerView.addOnItemTouchListener(this)
 
         val pagerSnapHelper = PagerSnapHelper()
         pagerSnapHelper.attachToRecyclerView(recyclerView)
 
         circleIndicator.attachToRecyclerView(recyclerView, pagerSnapHelper)
+        circleIndicator.setOnTouchListener { view, motionEvent -> return@setOnTouchListener gestureDector.onTouchEvent(motionEvent) }
         // optional
         adapter.registerAdapterDataObserver(circleIndicator.adapterDataObserver)
     }
 
-    fun getAttributesAt(position: Int): ArrayMap<String, Int> {
-        val array = ArrayMap<String, Int>()
-        val view = layoutManager.findViewByPosition(position)
-        for (attr in attributes){
-            val editText = view?.findViewWithTag<TextInputEditText>(attr)
-            array[attr] = editText?.text.toString().toInt()
-        }
-        return array
+    private fun scrollBy(amount: Int){
+        val currentPosition = layoutManager.findFirstVisibleItemPosition()
+        Log.d("kpchuck", "Current position is $currentPosition")
+        layoutManager.scrollToPosition(currentPosition + amount)
     }
 
-
-    inner class SimplePagerAdapter(private val attributes: Array<String>)  : RecyclerView.Adapter<SimplePagerAdapter.MyViewHolder>() {
-
-        private val dataSet = arrayOf("Start", "End")
+    inner class KeyFramePagerAdapter: RecyclerView.Adapter<RecyclerView.ViewHolder>(), SeekBar.OnSeekBarChangeListener{
 
 
-        // Provide a reference to the views for each data item
-        // Complex data items may need more than one view per item, and
-        // you provide access to all the views for a data item in a view holder.
-        // Each data item is just a string in this case that is shown in a TextView.
-        inner class MyViewHolder(view: LinearLayout, val rootView: LinearLayout, val titleView: TextView) :
-            RecyclerView.ViewHolder(view)
+        inner class FrameViewHolder(view: LinearLayout, val seekBar: SingleRowSeekBar): RecyclerView.ViewHolder(view)
 
+        inner class LastViewHolder(view: Button): RecyclerView.ViewHolder(view)
 
-        // Create new views (invoked by the layout manager)
-        override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): MyViewHolder {
-            // create a new view
-            val view = LayoutInflater.from(parent.context).inflate(R.layout.attribute_selector_layout, parent, false) as LinearLayout
-            var container = LinearLayout(parent.context)
-            for ((i, attr) in attributes.withIndex()){
-                if (i % 3 == 0) {
-                    container = newContainer(parent.context)
-                    view.addView(container)
+        override fun getItemViewType(position: Int): Int {
+            if (position + 1 == itemCount)
+                return TypeEnd
+            return TypeKeyFrame
+        }
+
+        override fun getItemCount(): Int {
+            return keyFrameAttrs.size + 1
+        }
+
+        override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): RecyclerView.ViewHolder {
+            val holder: RecyclerView.ViewHolder?
+            if (viewType == TypeEnd){
+                val button = Button(parent.context)
+                button.layoutParams = ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT)
+                button.text = "New KeyFrame"
+                holder = LastViewHolder(button)
+            } else {
+                val layout = LinearLayout(parent.context)
+                layout.orientation = LinearLayout.VERTICAL
+                layout.layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT)
+                for (attr in orderedAttrs){
+                    layout.addView(setupSeekBar(attr, parent.context))
                 }
-                container.addView(newEditText(parent.context, attr))
+                val sbLayout = createKeyFrameSeekBar(parent.context)
+                layout.addView(sbLayout, 0)
+                holder = FrameViewHolder(layout, sbLayout)
             }
-            return MyViewHolder(view, view, view.findViewById(R.id.attributeTitle))
+            return holder
         }
 
-        private fun newEditText(context: Context, hint: String): TextInputLayout {
-            val textInputLayout = TextInputLayout(context)
-            textInputLayout.layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
-            val textInputEditText = TextInputEditText(context)
-            textInputEditText.layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT)
-            textInputEditText.inputType = InputType.TYPE_CLASS_NUMBER or InputType.TYPE_NUMBER_FLAG_DECIMAL
-            textInputEditText.tag = hint
-            textInputEditText.hint = hint
-            textInputLayout.addView(textInputEditText)
-            return textInputLayout
+        override fun onBindViewHolder(holder: RecyclerView.ViewHolder, position: Int) {
+            if (holder.itemViewType == TypeEnd){
+                val h = holder as LastViewHolder
+                h.itemView.setOnClickListener { addNewKeyFrame() }
+            } else {
+                val frame = getFrameFromPosition(position)
+                (holder.itemView as LinearLayout).tag = frame
+                for (singleRowSeekBar in (holder.itemView as LinearLayout).children){
+                    if (singleRowSeekBar !is SingleRowSeekBar)
+                        continue
+                    // Set the value of the seekbar to the default value
+                    if (keyFrameAttrs[frame]!!.contains(singleRowSeekBar.textInfo))
+                        singleRowSeekBar.progress = keyFrameAttrs[frame]!![singleRowSeekBar.textInfo]!!
+                    else
+                        singleRowSeekBar.progress = frame.toFloat()
+                }
+                // If key frame: set key frame range bar to the frame
+                val h = holder as FrameViewHolder
+                h.seekBar.progress = frame.toFloat()
+            }
         }
 
-        private fun newContainer(context: Context): LinearLayout {
-            val container = LinearLayout(context)
-            container.orientation = LinearLayout.HORIZONTAL
-            container.layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT)
-            return container
+        private fun addNewKeyFrame(){
+            var keyFramePosition = effectVideoBinder.cursor
+            while (keyFrameAttrs.contains(keyFramePosition)) keyFramePosition++
+            val lastPosition = getFrameFromPosition(keyFrameAttrs.size-1)
+            val arrayMap = ArrayMap<String, Float>()
+            for ((k, v) in keyFrameAttrs[lastPosition]!!.entries){
+                arrayMap[k] = v
+            }
+            keyFrameAttrs[keyFramePosition] = arrayMap
+            notifyItemRangeChanged(0, keyFrameAttrs.size + 1)
+            layoutManager.scrollToPosition(getPositionFromFrame(keyFramePosition))
+            updateKeyFrames()
         }
 
-        // Replace the contents of a view (invoked by the layout manager)
-        override fun onBindViewHolder(holder: MyViewHolder, position: Int) {
-            // - get element from your dataset at this position
-            // - replace the contents of the view with that element
-            holder.titleView.text = "${dataSet[position]} (Pixels)"
+        private fun createKeyFrameSeekBar(context: Context): SingleRowSeekBar {
+            val seekBar = setupSeekBar("KeyFrame Time", context)
+            seekBar.max = effectVideoBinder.duration
+            seekBar.allowDisabling = false
+            seekBar.formatToTime = true
+            seekBar.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener{
+                override fun onProgressChanged(seekbar: SeekBar?, p1: Int, p2: Boolean) {
+                    updateKeyFrame(seekbar!!)
+                }
+
+                override fun onStartTrackingTouch(p0: SeekBar?) {
+                    layoutManager.setScrollEnabled(false)
+                }
+
+                override fun onStopTrackingTouch(seekBar: SeekBar?) {
+                    layoutManager.setScrollEnabled(true)
+                    notifyDataSetChanged()
+                    layoutManager.scrollToPosition(getPositionFromFrame(seekBar!!.progress))
+                }
+            })
+            return seekBar
         }
 
-        // Return the size of your dataset (invoked by the layout manager)
-        override fun getItemCount() = dataSet.size
+        private fun setupSeekBar(attr: String, context: Context): SingleRowSeekBar {
+            val seekBar = SingleRowSeekBar(context)
+            seekBar.text = attr
+            seekBar.setOnSeekBarChangeListener(this)
+            if (attr.contains("Percent"))
+                seekBar.usingPercent = true
+            seekBar.max = 100
+            seekBar.allowDisabling = true
+            return seekBar
+        }
 
+        private fun updateFrameAttrs(rangeBar: SeekBar, progress: Float){
+            val seekBarRow = (rangeBar.parent.parent.parent as SingleRowSeekBar)
+            val currentPosition = seekBarRow.frameTime ?: return
+            val key = seekBarRow.textInfo
+            keyFrameAttrs[currentPosition]!![key] = if (progress == -1f) progress else seekBarRow.progress
+            updateKeyFrames()
+        }
+
+        private fun updateKeyFrame(rangeBar: SeekBar){
+            val seekBarRow = (rangeBar.parent.parent.parent as SingleRowSeekBar)
+            val value = seekBarRow.progress.toInt()
+            val currentPosition = seekBarRow.frameTime ?: return
+            val tempAttrs = TreeMap<Int, ArrayMap<String, Float>>()
+            for (i in keyFrameAttrs.keys){
+                if (i == currentPosition.toString().toInt()){
+                    tempAttrs[value] = keyFrameAttrs[i]!!
+                } else
+                    tempAttrs[i] = keyFrameAttrs[i]!!
+            }
+            keyFrameAttrs.clear()
+            keyFrameAttrs.putAll(tempAttrs)
+            seekBarRow.frameTime = value
+            updateKeyFrames()
+        }
+
+        private fun getFrameFromPosition(position: Int): Int {
+            val keySet = keyFrameAttrs.navigableKeySet()
+            return keySet.elementAt(position)
+        }
+
+        private fun getPositionFromFrame(frame: Int): Int {
+            val keySet = keyFrameAttrs.navigableKeySet()
+            return keySet.indexOf(frame)
+        }
+
+        override fun onProgressChanged(seekBar: SeekBar?, progress: Int, p2: Boolean) {
+            updateFrameAttrs(seekBar!!, progress.toFloat())
+        }
+
+        override fun onStartTrackingTouch(p0: SeekBar?) {
+            layoutManager.setScrollEnabled(false)
+        }
+
+        override fun onStopTrackingTouch(p0: SeekBar?) {
+            layoutManager.setScrollEnabled(true)
+        }
+    }
+
+    inner class CustomLinearLayoutManager(context: Context, orientation: Int, reverseLayout: Boolean) : LinearLayoutManager(context, orientation, reverseLayout){
+        private var isScrollEnabled = true
+
+        fun setScrollEnabled(flag: Boolean) {
+            this.isScrollEnabled = flag
+        }
+
+        override fun canScrollHorizontally(): Boolean {
+            //Similarly you can customize "canScrollHorizontally()" for managing horizontal scroll
+            return isScrollEnabled && super.canScrollHorizontally()
+        }
+    }
+
+    companion object {
+        val TypeKeyFrame = 1
+        val TypeEnd = 2
     }
 }

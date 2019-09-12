@@ -5,13 +5,14 @@ import android.view.MotionEvent
 import android.view.View
 import android.view.View.OnTouchListener
 import java.util.logging.Logger
+import kotlin.math.abs
 
 
 class SwipeDetector : OnTouchListener {
-    private var downX: Float = 0.toFloat()
-    private var downY: Float = 0.toFloat()
-    private var upX: Float = 0.toFloat()
-    private var upY: Float = 0.toFloat()
+    private var downX: Float = 0f
+    private var downY: Float = 0f
+    private var upX: Float = 0f
+    private var upY: Float = 0f
     var action = Action.None
         private set
 
@@ -21,10 +22,6 @@ class SwipeDetector : OnTouchListener {
         TB, // Top to bottom
         BT, // Bottom to Top
         None // when no action was detected
-    }
-
-    fun swipeDetected(): Boolean {
-        return action != Action.None
     }
 
     override fun onTouch(v: View, event: MotionEvent): Boolean {
@@ -43,23 +40,27 @@ class SwipeDetector : OnTouchListener {
                 val deltaY = downY - upY
 
                 // horizontal swipe detection
-                if (Math.abs(deltaX) > MIN_DISTANCE) {
+                if (abs(deltaX) > MIN_DISTANCE) {
                     // left or right
-                    if (deltaX < 0) {
-                        action = Action.LR
-                        return true
+                    if (deltaX < 0 || deltaX > 0) {
+                        Log.d("kpchuck", "Left/right swipe detected")
+                        v.parent?.requestDisallowInterceptTouchEvent(true)
+                       // action = Action.LR
+                        return false
                     }
-                    if (deltaX > 0) {
-                        action = Action.RL
-                        return true
-                    }
+//                    if (deltaX > 0) {
+//                        action = Action.RL
+//                        //return true
+//                    }
                 } else
 
                 // vertical swipe detection
-                    if (Math.abs(deltaY) > MIN_DISTANCE) {
+                    if (abs(deltaY) > MIN_DISTANCE) {
                         // top or down
-                        if (deltaY < 0) {
+                        if (deltaY < 0 || deltaY > 0) {
                             action = Action.TB
+                            Log.d("kpchuck", "Up/down swipe detected")
+                            v.parent?.requestDisallowInterceptTouchEvent(false)
                             return false
                         }
                         if (deltaY > 0) {
@@ -75,6 +76,6 @@ class SwipeDetector : OnTouchListener {
 
     companion object {
 
-        private val MIN_DISTANCE = 100
+        private val MIN_DISTANCE = 1
     }
 }

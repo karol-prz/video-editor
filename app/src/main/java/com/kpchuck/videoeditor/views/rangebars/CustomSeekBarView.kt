@@ -4,13 +4,14 @@ import android.content.Context
 import android.util.AttributeSet
 import android.graphics.*
 import android.util.TypedValue
+import android.widget.SeekBar
 
 
 class CustomSeekBarView @JvmOverloads constructor(
     context: Context,
     attrs: AttributeSet? = null,
     defStyle: Int = 0
-    ): BaseRangeBar(context, attrs, defStyle) {
+    ): SeekBar(context, attrs, defStyle) {
 
     val paint = Paint(Paint.ANTI_ALIAS_FLAG)
     val rect: RectF
@@ -25,25 +26,25 @@ class CustomSeekBarView @JvmOverloads constructor(
             (width - paddingRight).toFloat(),
             height/2 + (dpToPx(1f)/2)
         )
-        setRangeBarEnabled(false)
     }
 
     fun freezeSecondary(){
         showDiff = true
         currentPosition = getCurrentState()
+        secondaryPosition = progress
     }
 
     fun resetSecondary(){
         showDiff = false
         currentPosition = 0f
-        secondaryPosition = rightIndex
+        secondaryPosition = 0
     }
 
     private fun getCurrentState(): Float {
         val width = (width
                 - paddingLeft
                 - paddingRight)
-        val thumbPos = (paddingLeft + width * rightPinValue.toInt()).toFloat() / tickEnd
+        val thumbPos = (paddingLeft + width * progress).toFloat() / max
         return thumbPos + paddingLeft
     }
 
@@ -58,8 +59,8 @@ class CustomSeekBarView @JvmOverloads constructor(
         paint.isAntiAlias = true
 
         // Get Height
-        val top = (height/2) - (dpToPx(3f)/2) + dpToPx(14f)
-        val bottom = height/2 + (dpToPx(3f)/2) + dpToPx(14.5f)
+        val top = (height/2) - (dpToPx(3f)/2)
+        val bottom = height/2 + (dpToPx(3f)/2)
         rect.top = top
         rect.bottom = bottom
 

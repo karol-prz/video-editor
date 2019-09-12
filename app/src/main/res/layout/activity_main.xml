@@ -5,18 +5,30 @@
         xmlns:app="http://schemas.android.com/apk/res-auto"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
+        android:id="@+id/parentView"
         tools:context=".MainActivity">
 
-    <ImageView
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
+    <FrameLayout
             android:layout_alignParentTop="true"
             android:adjustViewBounds="true"
-            android:scaleType="fitCenter"
-            android:id="@+id/imageView"/>
+            android:id="@+id/videoViewLayout"
+            android:layout_width="match_parent" android:layout_height="wrap_content">
 
+        <com.google.android.exoplayer2.ui.PlayerView
+                app:surface_type="texture_view"
+                android:id="@+id/videoView"
+                android:layout_width="match_parent" android:layout_height="wrap_content" />
+
+        <ImageView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:adjustViewBounds="true"
+                android:scaleType="fitCenter"
+                android:id="@+id/imageView"/>
+
+    </FrameLayout>
     <androidx.cardview.widget.CardView
-            android:layout_below="@id/imageView"
+            android:layout_below="@id/videoViewLayout"
             android:id="@+id/seekbarWrapper"
             android:padding="3dp"
             android:paddingTop="9dp"
@@ -27,13 +39,20 @@
                 android:orientation="vertical"
                 android:layout_width="match_parent" android:layout_height="wrap_content">
 
+            <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:padding="3dp" android:orientation="horizontal">
+
+                <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:id="@+id/currentTime"/>
+                <View android:layout_width="0dp" android:layout_height="1dp" android:layout_weight="1"/>
+                <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:id="@+id/endTime"/>
+
+
+            </LinearLayout>
+
             <com.kpchuck.videoeditor.views.rangebars.CustomSeekBarView
                     style="@style/Widget.AppCompat.SeekBar.Discrete"
                     android:layout_width="match_parent"
                     android:layout_height="@dimen/rangebar_height"
-                    app:mrb_rangeBarPaddingBottom="@dimen/rangebar_paddingbottom"
-                    app:mrb_selectorSize="@dimen/rangebar_selector_size"
-                    android:id="@+id/seekBar"/>
+                    android:id="@+id/seekBarVideoPosition"/>
 
             <LinearLayout
                     android:orientation="horizontal"
@@ -71,26 +90,30 @@
 
     <FrameLayout
             android:layout_below="@id/seekbarWrapper"
+            android:id="@+id/propertyViewFrame"
             android:layout_alignParentBottom="true"
             android:layout_width="match_parent"
             android:layout_height="match_parent">
-
 
         <androidx.cardview.widget.CardView
                 android:paddingBottom="6dp" app:cardCornerRadius="9dp"
                 android:layout_marginTop="3dp"
                 android:layout_width="match_parent"
                 android:layout_height="match_parent">
+
+            <ScrollView android:layout_width="match_parent" android:layout_height="match_parent">
+
             <LinearLayout
                     android:id="@+id/selectPropertyView"
                     android:orientation="vertical"
                     android:layout_width="match_parent"
                     android:layout_height="match_parent">
                 <Button
-                        android:text="New Text Effect"
+                        android:text="Add New Effect"
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content" android:id="@+id/addEffectButton"/>
             </LinearLayout>
+            </ScrollView>
         </androidx.cardview.widget.CardView>
 
     </FrameLayout>

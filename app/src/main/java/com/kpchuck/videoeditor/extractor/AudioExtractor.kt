@@ -23,14 +23,14 @@ import java.util.HashMap
 class AudioExtractor {
 
     /**
-     * @param srcPath  the path of source video file.
-     * @param dstPath  the path of destination video file.
+     * @param srcPath  the path of source videoUtils file.
+     * @param dstPath  the path of destination videoUtils file.
      * @param startMs  starting time in milliseconds for trimming. Set to
      * negative if starting from beginning.
      * @param endMs    end time for trimming in milliseconds. Set to negative if
      * no trimming at the end.
      * @param useAudio true if keep the audio track from the source.
-     * @param useVideo true if keep the video track from the source.
+     * @param useVideo true if keep the videoUtils track from the source.
      * @throws IOException
      */
     @SuppressLint("NewApi")
@@ -60,7 +60,7 @@ class AudioExtractor {
             var selectCurrentTrack = false
             if (mime.startsWith("audio/") && useAudio) {
                 selectCurrentTrack = true
-            } else if (mime.startsWith("video/") && useVideo) {
+            } else if (mime.startsWith("videoUtils/") && useVideo) {
                 selectCurrentTrack = true
             }
             if (selectCurrentTrack) {

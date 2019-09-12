@@ -1,50 +1,80 @@
 package com.kpchuck.videoeditor.controllers
 
+import android.app.Activity
 import android.content.Context
 import android.view.View
-import android.view.ViewGroup
 import android.view.animation.Animation
 import android.view.animation.AnimationUtils
 import android.widget.Button
 import android.widget.FrameLayout
 import android.widget.LinearLayout
 import androidx.cardview.widget.CardView
-import androidx.core.view.iterator
-import com.kpchuck.videoeditor.MainActivity
 import com.kpchuck.videoeditor.R
-import com.kpchuck.videoeditor.views.VideoViewer
 import com.kpchuck.videoeditor.views.efffectviews.BaseEffectView
 import com.kpchuck.videoeditor.views.efffectviews.TextEffectView
 import android.os.Handler
-import androidx.core.os.postAtTime
+import android.util.Log
+import androidx.appcompat.app.AlertDialog
 import androidx.core.view.get
 import androidx.core.view.size
+import com.kpchuck.videoeditor.EffectVideoBinder
+import com.kpchuck.videoeditor.views.efffectviews.ImageEffectView
+import java.util.*
+import kotlin.collections.ArrayList
 
 
-class EffectViewController(private val effectView: LinearLayout, private val context: Context, private val videoViewer: VideoViewer,
-                           private val mainActivity: MainActivity): VideoViewer.OnVideoChangeListener {
+class EffectViewController(private val propertyFrame: FrameLayout, private val context: Context,
+                           private val effectVideoBinder: EffectVideoBinder, private val activity: Activity){
 
     private val addedViews = ArrayList<BaseEffectView>()
-    private val addViewButton = effectView.findViewById<Button>(R.id.addEffectButton)
+    private val effectView = propertyFrame.findViewById<LinearLayout>(R.id.selectPropertyView)
+    private val addViewButton = propertyFrame.findViewById<Button>(R.id.addEffectButton)
+    private val effectsMap = hashMapOf<String, () -> BaseEffectView>(
+        Pair("Text", { TextEffectView(context, effectVideoBinder) }),
+        Pair("Image", { ImageEffectView(context, effectVideoBinder)})
+    )
+
 
     init {
-        addViewButton.setOnClickListener { addTextView() }
-        videoViewer.addVideoChangeListener(this)
+        addViewButton.setOnClickListener { showEffectDialog() }
+    }
+
+    private fun showEffectDialog(){
+        // setup the alert builder
+        val builder = AlertDialog.Builder(context, R.style.MaterialBaseTheme_Dialog)
+        builder.setTitle("Choose an Effect")
+
+        // add a radio button list
+        val effectsList = effectsMap.keys.sorted().toTypedArray()
+        var checkedItem = 0
+        builder.setSingleChoiceItems(effectsList, checkedItem) { dialog, which ->
+            // User selected an item
+            checkedItem = which
+        }
+
+        // add OK and Cancel buttons
+        builder.setPositiveButton("OK") { dialog, which ->
+            Log.d("kpchuck", "Which is $checkedItem")
+            val view = effectsMap[effectsList[checkedItem]]?.invoke() ?: return@setPositiveButton
+            addedViews.add(view)
+            effectVideoBinder.addNewView(view)
+            refreshViews()
+            openView(view)
+        }
+        builder.setNegativeButton("Cancel", null)
+
+        // create and show the alert dialog
+        val dialog = builder.create()
+        dialog.show()
     }
 
     fun hasPropertyOpen(): Boolean{
-        return effectView.size == 2
+        return propertyFrame.size > 1
     }
 
     fun closeProperty(){
-        removeView(addedViews[effectView[0].tag.toString().toInt()].rootView)
-    }
-
-    private fun addTextView(){
-        val textView = TextEffectView(context)
-        addedViews.add(textView)
-        refreshViews()
-        openView(textView)
+        val openedView = propertyFrame[propertyFrame.size-1] as CardView
+        removeView(openedView)
     }
 
     fun refreshViews(){
@@ -61,10 +91,9 @@ class EffectViewController(private val effectView: LinearLayout, private val con
 
     private fun openView(view: BaseEffectView){
         val rootView = view.rootView
-        (effectView.parent as ViewGroup).addView(rootView, 0)
+        propertyFrame.addView(rootView)
         val animSlide = AnimationUtils.loadAnimation(context, R.anim.slide_in)
         rootView.startAnimation(animSlide)
-        view.setEnd(videoViewer.numFrames)
         view.setShowing{removeView(rootView)}
     }
 
@@ -77,7 +106,7 @@ class EffectViewController(private val effectView: LinearLayout, private val con
                 rootView.visibility = View.GONE
                 val h = Handler()
                 h.postAtTime({
-                        mainActivity.runOnUiThread {
+                        activity.runOnUiThread {
                             try {
                                 while (rootView.parent != null) {
                                     (rootView.parent as FrameLayout).removeView(rootView)
@@ -87,21 +116,13 @@ class EffectViewController(private val effectView: LinearLayout, private val con
                                 e.printStackTrace()
                             }
                         }
-                    }, 10
+                    }, 5
                 )
             }
 
             override fun onAnimationRepeat(animation: Animation) {}
         })
         rootView.startAnimation(animSlideOut)
-    }
 
-    override fun onFrameChanged(position: Int) {
-
-    }
-
-    override fun onFramesCut(startPosition: Int, endPosition: Int) {
-        for (view in addedViews)
-            view.setEnd(videoViewer.numFrames)
     }
 }
